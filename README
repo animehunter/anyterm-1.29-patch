@@ -1,0 +1,22 @@
+Download anyterm 1.29
+svn co http://svn.anyterm.org/anyterm/tags/releases/1.1/1.1.29/ anyterm-1.1.29
+
+
+Apply the patch
+sh# patch -p1 < patch0.patch
+open up anyterm.js and change "url_prefix" to anytermprefix
+
+
+Sample lighttpd config
+SERVER["socket"] == ":443" {
+        ssl.engine = "enable"
+        ssl.pemfile = "/etc/ssl/localcerts/selfsigned.pem"
+
+        $HTTP["host"] == "shell.example.org" {
+                $HTTP["url"] =~ "^/anytermprefix(.*)$" {
+                        proxy.server = ("" => (("host"=>"127.0.0.1",
+                                        "port"=>27777)))
+                }
+        }
+}
+

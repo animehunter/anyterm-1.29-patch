@@ -1,0 +1,57 @@
+--- a/libpbe/include/HttpResponse.hh	2008-11-09 15:18:30.000000000 +0100
++++ a/libpbe/include/HttpResponse.hh	2010-02-02 15:20:54.019454185 +0100
+@@ -33,7 +33,7 @@ class HttpResponse {
+ 
+ public:
+   HttpResponse():
+-    http_version("HTTP/1.1"), status_code(200), reason_phrase("OK") {}
++    http_version("HTTP/1.1"), status_code(200), reason_phrase("OK"), dont_chunk(false) {}
+ 
+   HttpResponse(std::string s);
+ 
+@@ -44,6 +44,7 @@ public:
+   std::string reason_phrase;
+   std::map<std::string,std::string> headers;
+   std::string body;
++  bool dont_chunk;
+ };
+ 
+ 
+--- a/libpbe/src/HttpDaemon.cc	2008-11-09 15:18:30.000000000 +0100
++++ a/libpbe/src/HttpDaemon.cc	2010-02-02 15:20:01.749320026 +0100
+@@ -55,6 +55,7 @@ void HttpDaemon::session(FileDescriptor&
+ 	  // We should send a 1.0 response if the request was for 1.0; i.e.
+           // we should send a content-length header and not use chunked encoding.
+ 	  close_connection=true;
++	  resp.dont_chunk=true;
+ 	}
+ 	if (req.headers["Connection"]=="close") {  
+ 	  // could be other tokens in the line.  Should be case-insensitive.
+--- a/libpbe/src/HttpResponse.cc	2008-12-18 20:45:15.000000000 +0100
++++ a/libpbe/src/HttpResponse.cc	2010-02-02 15:25:40.456490780 +0100
+@@ -50,14 +50,19 @@ void HttpResponse::send(FileDescriptor& 
+        i != headers.end(); ++i) {
+     s << i->first << ": " << i->second << "\r\n";
+   }
+-  s << "Transfer-Encoding: chunked\r\n"
+-    << "\r\n";
+-  if (body.length()==0) {
+-    s << "0\r\n\r\n";
++  if (dont_chunk) {
++    s << "Content-Length: " << body.length() << "\r\n"
++      << "\r\n"
++      << body;
+   } else {
+-    send_chunked(s,body);
++    s << "Transfer-Encoding: chunked\r\n"
++      << "\r\n";
++    if (body.length()==0) {
++      s << "0\r\n\r\n";
++    } else {
++      send_chunked(s,body);
++    }
+   }
+-
+   fd.writeall(s.str());
+ }
+ 
